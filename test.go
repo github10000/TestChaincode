@@ -1,3 +1,20 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+  http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
+
 package main
 
 import (
@@ -6,105 +23,204 @@ import (
 	"strconv"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
-	"github.com/op/go-logging"
 )
 
-//AssetManagementChaincode APIs exposed to chaincode callers
-type AssetManagementChaincode struct {
+// SimpleChaincode example simple Chaincode implementation
+type SimpleChaincode struct {
 }
 
-var myLogger = logging.MustGetLogger("asset_mgm")
+func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
+	fmt.Printf("Init called, initializing chaincode")
+	
+	var A, B string    // Entities
+	var Aval, Bval int // Asset holdings
+	var err error
 
-// Init initialization, this method will create asset despository in the chaincode state
-func (t *AssetManagementChaincode) Init(stub shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+	if len(args) != 4 {
+		return nil, errors.New("Incorrect number of arguments. Expecting 4")
+	}
 
-	var columnDefsTableTwo []*shim.ColumnDefinition
-	columnOneTableTwoDef := shim.ColumnDefinition{Name: "key",
-		Type: shim.ColumnDefinition_STRING, Key: true}
-	columnTwoTableTwoDef := shim.ColumnDefinition{Name: "value",
-		Type: shim.ColumnDefinition_STRING, Key: false}
+	// Initialize the chaincode
+	A = args[0]
+	Aval, err = strconv.Atoi(args[1])
+	if err != nil {
+		return nil, errors.New("Expecting integer value for asset holding")
+	}
+	B = args[2]
+	Bval, err = strconv.Atoi(args[3])
+	if err != nil {
+		return nil, errors.New("Expecting integer value for asset holding")
+	}
+	fmt.Printf("Aval = %d, Bval = %d\n", Aval, Bval)
 
-	columnDefsTableTwo = append(columnDefsTableTwo, &columnOneTableTwoDef)
-	columnDefsTableTwo = append(columnDefsTableTwo, &columnTwoTableTwoDef)
+	// Write the state to the ledger
+	err = stub.PutState(A, []byte(strconv.Itoa(Aval)))
+	if err != nil {
+		return nil, err
+	}
 
-	// Create asset depository table
-	return nil, stub.CreateTable("TableString", columnDefsTableTwo)
-}
-
-// Invoke  method is the interceptor of all invocation transactions, its job is to direct
-// invocation transactions to intended APIs
-func (t *AssetManagementChaincode) Invoke(stub shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-
-	fmt.Println(len(args))
-
-	ok, err := stub.InsertRow("TableString", shim.Row{
-		Columns: []*shim.Column{
-			&shim.Column{Value: &shim.Column_String_{String_: args[0]}},
-			&shim.Column{Value: &shim.Column_String_{String_: args[1]}}},
-	})
-
-	// you can only assign balances to new account IDs
-	if !ok && err == nil {
-		myLogger.Errorf("system error %v", err)
-		return nil, errors.New("Asset was already assigned." + strconv.Itoa(len(args)))
+	err = stub.PutState(B, []byte(strconv.Itoa(Bval)))
+	if err != nil {
+		return nil, err
 	}
 
 	return nil, nil
 }
 
-// Query method is the interceptor of all invocation transactions, its job is to direct
-// query transactions to intended APIs, and return the result back to callers
-func (t *AssetManagementChaincode) Query(stub shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+// Transaction makes payment of X units from A to B
+func (t *SimpleChaincode) invoke(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	fmt.Printf("Running invoke")
+	
+	var A, B string    // Entities
+	var Aval, Bval int // Asset holdings
+	var X int          // Transaction value
+	var err error
 
-	var columns []shim.Column
-
-	col1 := shim.Column{Value: &shim.Column_String_{String_: args[0]}}
-	columns = append(columns, col1)
-
-	row, err := stub.GetRow("TableString", columns)
-	if err != nil {
-		return nil, fmt.Errorf("getRowTableTwo operation failed. %s", err)
+	if len(args) != 3 {
+		return nil, errors.New("Incorrect number of arguments. Expecting 3")
 	}
 
-	var strResult, strRow string
-	strRow = "[" + row.Columns[0].GetString_() + ":"
-	strRow += row.Columns[1].GetString_() + "]"
-	strResult += strRow
+	A = args[0]
+	B = args[1]
 
-	//	rowChannel, err := stub.GetAllRows("TableAsset")
-	//	if err != nil {
-	//		return nil, errors.New("Query operation fail")
-	//	}
+	// Get the state from the ledger
+	// TODO: will be nice to have a GetAllState call to ledger
+	Avalbytes, err := stub.GetState(A)
+	if err != nil {
+		return nil, errors.New("Failed to get state")
+	}
+	if Avalbytes == nil {
+		return nil, errors.New("Entity not found")
+	}
+	Aval, _ = strconv.Atoi(string(Avalbytes))
 
-	//	var rows []shim.Row
-	//	var strResult, strRow string
-	//	for {
-	//		select {
-	//		case row, ok := <-rowChannel:
-	//			if !ok {
-	//				rowChannel = nil
-	//			} else {
-	//				rows = append(rows, row)
+	Bvalbytes, err := stub.GetState(B)
+	if err != nil {
+		return nil, errors.New("Failed to get state")
+	}
+	if Bvalbytes == nil {
+		return nil, errors.New("Entity not found")
+	}
+	Bval, _ = strconv.Atoi(string(Bvalbytes))
 
-	//				strRow = "[" + row.Columns[0].GetString_() + ":"
-	//				strRow += row.Columns[1].GetString_() + ":"
-	//				strRow += strconv.FormatUint(row.Columns[2].GetUint64(), 10) + "]"
-	//				strResult += strRow
-	//			}
-	//		}
-	//		if rowChannel == nil {
-	//			break
-	//		}
-	//	}
+	// Perform the execution
+	X, err = strconv.Atoi(args[2])
+	Aval = Aval - X
+	Bval = Bval + X
+	fmt.Printf("Aval = %d, Bval = %d\n", Aval, Bval)
 
-	return []byte(strResult), nil
+	// Write the state back to the ledger
+	err = stub.PutState(A, []byte(strconv.Itoa(Aval)))
+	if err != nil {
+		return nil, err
+	}
+
+	err = stub.PutState(B, []byte(strconv.Itoa(Bval)))
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
+}
+
+// Deletes an entity from state
+func (t *SimpleChaincode) delete(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	fmt.Printf("Running delete")
+	
+	if len(args) != 1 {
+		return nil, errors.New("Incorrect number of arguments. Expecting 3")
+	}
+
+	A := args[0]
+
+	// Delete the key from the state in ledger
+	err := stub.DelState(A)
+	if err != nil {
+		return nil, errors.New("Failed to delete state")
+	}
+
+	return nil, nil
+}
+
+// Invoke callback representing the invocation of a chaincode
+// This chaincode will manage two accounts A and B and will transfer X units from A to B upon invoke
+func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
+	fmt.Printf("Invoke called, determining function")
+	
+	// Handle different functions
+	if function == "invoke" {
+		// Transaction makes payment of X units from A to B
+		fmt.Printf("Function is invoke")
+		return t.invoke(stub, args)
+	} else if function == "init" {
+		fmt.Printf("Function is init")
+		return t.Init(stub, function, args)
+	} else if function == "delete" {
+		// Deletes an entity from its state
+		fmt.Printf("Function is delete")
+		return t.delete(stub, args)
+	}
+
+	return nil, errors.New("Received unknown function invocation")
+}
+
+func (t* SimpleChaincode) Run(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
+	fmt.Printf("Run called, passing through to Invoke (same function)")
+	
+	// Handle different functions
+	if function == "invoke" {
+		// Transaction makes payment of X units from A to B
+		fmt.Printf("Function is invoke")
+		return t.invoke(stub, args)
+	} else if function == "init" {
+		fmt.Printf("Function is init")
+		return t.Init(stub, function, args)
+	} else if function == "delete" {
+		// Deletes an entity from its state
+		fmt.Printf("Function is delete")
+		return t.delete(stub, args)
+	}
+
+	return nil, errors.New("Received unknown function invocation")
+}
+
+// Query callback representing the query of a chaincode
+func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
+	fmt.Printf("Query called, determining function")
+	
+	if function != "query" {
+		fmt.Printf("Function is query")
+		return nil, errors.New("Invalid query function name. Expecting \"query\"")
+	}
+	var A string // Entities
+	var err error
+
+	if len(args) != 1 {
+		return nil, errors.New("Incorrect number of arguments. Expecting name of the person to query")
+	}
+
+	A = args[0]
+
+	// Get the state from the ledger
+	Avalbytes, err := stub.GetState(A)
+	if err != nil {
+		jsonResp := "{\"Error\":\"Failed to get state for " + A + "\"}"
+		return nil, errors.New(jsonResp)
+	}
+
+	if Avalbytes == nil {
+		jsonResp := "{\"Error\":\"Nil amount for " + A + "\"}"
+		return nil, errors.New(jsonResp)
+	}
+
+	jsonResp := "{\"Name\":\"" + A + "\",\"Amount\":\"" + string(Avalbytes) + "\"}"
+	fmt.Printf("Query Response:%s\n", jsonResp)
+	return Avalbytes, nil
 }
 
 func main() {
-
-	//	primitives.SetSecurityLevel("SHA3", 256)
-	err := shim.Start(new(AssetManagementChaincode))
+	err := shim.Start(new(SimpleChaincode))
 	if err != nil {
-		myLogger.Debugf("Error starting AssetManagementChaincode: %s", err)
+		fmt.Printf("Error starting Simple chaincode: %s", err)
 	}
 }
