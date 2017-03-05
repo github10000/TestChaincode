@@ -19,9 +19,9 @@ var myLogger = logging.MustGetLogger("asset_mgm")
 func (t *AssetManagementChaincode) Init(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
 
 	var columnDefsTableTwo []*shim.ColumnDefinition
-	columnOneTableTwoDef := shim.ColumnDefinition{Name: nameKey,
+	columnOneTableTwoDef := shim.ColumnDefinition{Name: "nameKey",
 		Type: shim.ColumnDefinition_STRING, Key: true}
-	columnTwoTableTwoDef := shim.ColumnDefinition{Name: nameValue,
+	columnTwoTableTwoDef := shim.ColumnDefinition{Name: "nameValue",
 		Type: shim.ColumnDefinition_STRING, Key: false}
 
 	columnDefsTableTwo = append(columnDefsTableTwo, &columnOneTableTwoDef)
