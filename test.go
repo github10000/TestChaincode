@@ -16,7 +16,7 @@ type AssetManagementChaincode struct {
 var myLogger = logging.MustGetLogger("asset_mgm")
 
 // Init initialization, this method will create asset despository in the chaincode state
-func (t *AssetManagementChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+func (t *AssetManagementChaincode) Init(stub shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 
 	var columnDefsTableTwo []*shim.ColumnDefinition
 	columnOneTableTwoDef := shim.ColumnDefinition{Name: "key",
@@ -33,7 +33,7 @@ func (t *AssetManagementChaincode) Init(stub *shim.ChaincodeStub, function strin
 
 // Invoke  method is the interceptor of all invocation transactions, its job is to direct
 // invocation transactions to intended APIs
-func (t *AssetManagementChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+func (t *AssetManagementChaincode) Invoke(stub shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 
 	fmt.Println(len(args))
 
@@ -54,7 +54,7 @@ func (t *AssetManagementChaincode) Invoke(stub *shim.ChaincodeStub, function str
 
 // Query method is the interceptor of all invocation transactions, its job is to direct
 // query transactions to intended APIs, and return the result back to callers
-func (t *AssetManagementChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+func (t *AssetManagementChaincode) Query(stub shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 
 	var columns []shim.Column
 
