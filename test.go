@@ -6,14 +6,12 @@ import (
 	"strconv"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
-	"github.com/op/go-logging"
 )
 
 //AssetManagementChaincode APIs exposed to chaincode callers
 type AssetManagementChaincode struct {
 }
 
-var myLogger = logging.MustGetLogger("asset_mgm")
 
 // Init initialization, this method will create asset despository in the chaincode state
 func (t *AssetManagementChaincode) Init(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
@@ -45,7 +43,6 @@ func (t *AssetManagementChaincode) Invoke(stub shim.ChaincodeStubInterface, func
 
 	// you can only assign balances to new account IDs
 	if !ok && err == nil {
-		myLogger.Errorf("system error %v", err)
 		return nil, errors.New("Asset was already assigned." + strconv.Itoa(len(args)))
 	}
 
@@ -105,6 +102,5 @@ func main() {
 	//	primitives.SetSecurityLevel("SHA3", 256)
 	err := shim.Start(new(AssetManagementChaincode))
 	if err != nil {
-		myLogger.Debugf("Error starting AssetManagementChaincode: %s", err)
 	}
 }
